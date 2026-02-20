@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bot, Send, X, MessageSquare, AlertTriangle, CheckCircle2, Info, Loader2 } from 'lucide-react';
-import { mockAttendanceData, AttendanceData } from '@/lib/index';
+import { AttendanceData } from '@/lib/index';
 
 interface Message {
   id: string;
@@ -40,8 +40,10 @@ export function AILeaveAdvisor() {
 
   const analyzeRequest = (text: string) => {
     const lowerText = text.toLowerCase();
-    const subject = mockAttendanceData.find((s) => 
-      lowerText.includes(s.subject.toLowerCase()) || 
+    // Attendance data from backend (empty until API connected)
+    const attendanceData: AttendanceData[] = [];
+    const subject = attendanceData.find((s) =>
+      lowerText.includes(s.subject.toLowerCase()) ||
       lowerText.includes(s.subject.split(' ')[0].toLowerCase())
     );
 
@@ -54,9 +56,9 @@ export function AILeaveAdvisor() {
         subject: subject.subject,
         status: isSafe ? 'safe' : isWarning ? 'warning' : 'critical' as any,
         impact: `${subject.percentage}% → ${newPercentage}%`,
-        reason: isSafe 
+        reason: isSafe
           ? "You have a healthy buffer. One miss won't hurt much."
-          : isWarning 
+          : isWarning
             ? "You are approaching the 75% danger zone. Exercise caution."
             : "Mandatory attendance required. Skipping will drop you below institution requirements.",
       };
@@ -84,7 +86,7 @@ export function AILeaveAdvisor() {
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        text: analysis 
+        text: analysis
           ? `I've analyzed your attendance for ${analysis.subject}. here is the projected impact:`
           : "I couldn't find that specific subject in your current semester list. Could you please specify which course you're referring to?",
         recommendation: analysis || undefined,
@@ -119,7 +121,7 @@ export function AILeaveAdvisor() {
                   </div>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsOpen(false)}
                 className="p-2 hover:bg-white/5 rounded-full transition-colors text-muted-foreground"
               >
@@ -136,7 +138,7 @@ export function AILeaveAdvisor() {
                 >
                   <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-foreground border border-white/5'}`}>
                     {msg.text}
-                    
+
                     {msg.recommendation && (
                       <div className="mt-3 p-3 bg-background/50 rounded-xl border border-white/10 space-y-2">
                         <div className="flex items-center justify-between">
@@ -150,11 +152,10 @@ export function AILeaveAdvisor() {
                           <span className="text-[10px] text-muted-foreground">Attendance Impact</span>
                         </div>
                         <p className="text-xs text-muted-foreground italic">"{msg.recommendation.reason}"</p>
-                        <div className={`mt-2 py-1 px-2 rounded-md text-[10px] font-bold text-center uppercase tracking-widest ${
-                          msg.recommendation.status === 'safe' ? 'bg-green-500/10 text-green-500' : 
-                          msg.recommendation.status === 'warning' ? 'bg-amber-500/10 text-amber-500' : 
-                          'bg-destructive/10 text-destructive'
-                        }`}>
+                        <div className={`mt-2 py-1 px-2 rounded-md text-[10px] font-bold text-center uppercase tracking-widest ${msg.recommendation.status === 'safe' ? 'bg-green-500/10 text-green-500' :
+                            msg.recommendation.status === 'warning' ? 'bg-amber-500/10 text-amber-500' :
+                              'bg-destructive/10 text-destructive'
+                          }`}>
                           Recommendation: {msg.recommendation.status.toUpperCase()}
                         </div>
                       </div>
@@ -183,7 +184,7 @@ export function AILeaveAdvisor() {
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 />
-                <button 
+                <button
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim()}
                   className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary/20 hover:bg-primary/40 text-primary rounded-lg transition-all disabled:opacity-50"
@@ -227,7 +228,7 @@ export function AILeaveAdvisor() {
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {/* Pulse Ring */}
         {!isOpen && (
           <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />

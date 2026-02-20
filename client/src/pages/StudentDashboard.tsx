@@ -12,7 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { mockAttendanceData } from '@/lib/index';
+import { AttendanceData } from '@/lib/index';
 import { AttendanceCard } from '@/components/AttendanceCard';
 import { TimelineCard } from '@/components/TimelineCard';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,8 @@ const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const [date, setDate] = useState(new Date());
 
-  // Filter for low attendance
-  const lowAttendanceSubjects = mockAttendanceData.filter(s => s.percentage < 75);
+  const attendanceData: AttendanceData[] = [];
+  const lowAttendanceSubjects = attendanceData.filter(s => s.percentage < 75);
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 space-y-8 font-sans">
@@ -136,7 +136,7 @@ const StudentDashboard: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockAttendanceData.map((data) => (
+              {attendanceData.map((data: AttendanceData) => (
                 <Card key={data.subject} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                   <CardContent className="p-5">
                     <div className="flex justify-between items-start mb-4">

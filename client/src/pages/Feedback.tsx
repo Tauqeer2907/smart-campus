@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Send, ShieldCheck, MessageSquare, Info, CheckCircle2 } from 'lucide-react';
-import { mockAttendanceData } from '@/lib/index';
+import { AttendanceData } from '@/lib/index';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,15 +17,12 @@ interface RatingState {
 }
 
 export default function Feedback() {
+  // Courses come from backend — empty until API is connected
+  const subjects: AttendanceData[] = [];
   const [feedbackData, setFeedbackData] = useState<Record<string, RatingState>>(
-    mockAttendanceData.reduce((acc, curr) => ({
+    subjects.reduce((acc, curr) => ({
       ...acc,
-      [curr.subject]: {
-        facultyRating: 0,
-        contentRating: 0,
-        comment: '',
-        submitted: false,
-      },
+      [curr.subject]: { facultyRating: 0, contentRating: 0, comment: '', submitted: false },
     }), {})
   );
 
@@ -55,21 +52,21 @@ export default function Feedback() {
       ...prev,
       [subject]: { ...prev[subject], submitted: true },
     }));
-    
+
     toast.success(`Feedback for ${subject} submitted anonymously!`, {
       description: "Your response has been encrypted and stored without your identity.",
       icon: <ShieldCheck className="h-4 w-4 text-primary" />
     });
   };
 
-  const StarRating = ({ 
-    value, 
-    onChange, 
-    label 
-  }: { 
-    value: number; 
-    onChange: (val: number) => void; 
-    label: string 
+  const StarRating = ({
+    value,
+    onChange,
+    label
+  }: {
+    value: number;
+    onChange: (val: number) => void;
+    label: string
   }) => (
     <div className="flex flex-col gap-2">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</Label>
@@ -85,8 +82,8 @@ export default function Feedback() {
             <Star
               className={cn(
                 "h-6 w-6 transition-all duration-200",
-                star <= value 
-                  ? "fill-primary text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]" 
+                star <= value
+                  ? "fill-primary text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.5)]"
                   : "text-muted/40 hover:text-muted-foreground"
               )}
             />
@@ -99,7 +96,7 @@ export default function Feedback() {
   return (
     <div className="p-6 space-y-8 max-w-5xl mx-auto">
       <header className="space-y-4">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between"
@@ -129,7 +126,7 @@ export default function Feedback() {
 
       <div className="grid grid-cols-1 gap-6">
         <AnimatePresence mode='popLayout'>
-          {mockAttendanceData.map((course, index) => (
+          {subjects.map((course, index) => (
             <motion.div
               key={course.subject}
               initial={{ opacity: 0, y: 20 }}
@@ -168,12 +165,12 @@ export default function Feedback() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-6">
-                        <StarRating 
+                        <StarRating
                           label="Faculty Performance"
                           value={feedbackData[course.subject].facultyRating}
                           onChange={(val) => handleRating(course.subject, 'facultyRating', val)}
                         />
-                        <StarRating 
+                        <StarRating
                           label="Course Content & Quality"
                           value={feedbackData[course.subject].contentRating}
                           onChange={(val) => handleRating(course.subject, 'contentRating', val)}
@@ -197,7 +194,7 @@ export default function Feedback() {
                             onChange={(e) => handleComment(course.subject, e.target.value)}
                           />
                         </div>
-                        <Button 
+                        <Button
                           onClick={() => handleSubmit(course.subject)}
                           className="w-full bg-primary hover:bg-primary/80 text-white font-semibold group"
                         >

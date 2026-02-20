@@ -10,7 +10,7 @@ import {
   CalendarDays,
   ArrowUpRight
 } from 'lucide-react';
-import { mockAttendanceData, AttendanceData } from '@/lib/index';
+import { AttendanceData } from '@/lib/index';
 import { AttendanceCard } from '@/components/AttendanceCard';
 import {
   Select,
@@ -61,9 +61,12 @@ export default function Attendance() {
     };
   }, [selectedMonth, selectedYear]);
 
-  const overallPercentage = Math.round(
-    mockAttendanceData.reduce((acc, curr) => acc + curr.percentage, 0) / mockAttendanceData.length
-  );
+
+  // Attendance data will come from backend API when connected
+  const attendanceData: AttendanceData[] = [];
+  const overallPercentage = attendanceData.length
+    ? Math.round(attendanceData.reduce((acc, curr) => acc + curr.percentage, 0) / attendanceData.length)
+    : 0;
 
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -145,7 +148,7 @@ export default function Attendance() {
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
         >
-          {mockAttendanceData.map((subject: AttendanceData) => (
+          {attendanceData.map((subject: AttendanceData) => (
             <motion.div key={subject.subject} variants={itemFadeIn} className="group relative">
               <AttendanceCard
                 subject={subject.subject}

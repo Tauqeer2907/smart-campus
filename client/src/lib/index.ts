@@ -1,7 +1,6 @@
 /**
  * UniCampus Core Library
  * Year: 2026
- * Aesthetic: Cyber-Academic Precision
  */
 
 export type UserRole = 'student' | 'faculty' | 'admin';
@@ -86,102 +85,20 @@ export interface PlacementDrive {
   status: 'open' | 'closed' | 'shortlisted' | 'interview' | 'offer';
 }
 
-export const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Aryan Sharma',
-    email: 'aryan.comp101@nit.edu',
-    role: 'student',
-    branch: 'COMP',
-    year: 1,
-    semester: 2,
-    studentId: 'COMP_101',
-    cgpa: 9.2,
-    avatar: 'https://i.pravatar.cc/150?u=aryan',
-  },
-  {
-    id: '2',
-    name: 'Dr. Vikram Malhotra',
-    email: 'vikram.malhotra@nit.edu',
-    role: 'faculty',
-    facultyId: 'FAC_CS_01',
-    avatar: 'https://i.pravatar.cc/150?u=vikram',
-  },
-  {
-    id: '3',
-    name: 'Admin Control',
-    email: 'admin@nit.edu',
-    role: 'admin',
-    avatar: 'https://i.pravatar.cc/150?u=admin',
-  },
-];
-
-export const mockAttendanceData: AttendanceData[] = [
-  {
-    subject: 'Data Structures',
-    attended: 32,
-    total: 35,
-    percentage: 91.4,
-    trend: [85, 88, 90, 91, 91.4],
-    lastUpdated: '2026-02-19',
-    faculty: 'Dr. Vikram Malhotra',
-    credits: 4,
-    prediction: 'You can safely skip 2 more classes',
-  },
-  {
-    subject: 'Discrete Mathematics',
-    attended: 28,
-    total: 36,
-    percentage: 77.7,
-    trend: [80, 78, 77, 77.5, 77.7],
-    lastUpdated: '2026-02-18',
-    faculty: 'Prof. Sarah Jain',
-    credits: 3,
-    prediction: 'High Alert: Do not skip the next 3 sessions',
-  },
-  {
-    subject: 'Digital Logic Design',
-    attended: 21,
-    total: 30,
-    percentage: 70.0,
-    trend: [75, 72, 71, 70.5, 70.0],
-    lastUpdated: '2026-02-20',
-    faculty: 'Dr. Amit Singh',
-    credits: 4,
-    prediction: 'CRITICAL: Mandatory attendance required to meet 75% cutoff',
-  },
-  {
-    subject: 'Communication Skills',
-    attended: 14,
-    total: 15,
-    percentage: 93.3,
-    trend: [90, 92, 93, 93.3],
-    lastUpdated: '2026-02-17',
-    faculty: 'Prof. Elena Gilbert',
-    credits: 2,
-    prediction: 'Perfect track record',
-  },
-];
-
 /**
- * Utility: Parse Student ID
- * Example: "COMP_101" -> { branch: "COMP", year: 1 }
+ * Parse Student ID: "COMP_101" → { branch: "COMP", year: 1 }
  */
 export function parseStudentId(id: string) {
   const parts = id.split('_');
   if (parts.length < 2) return null;
-
-  const branch = parts[0];
-  const yearCode = parts[1][0]; // Assuming first digit is year
-
   return {
-    branch: branch.toUpperCase(),
-    year: parseInt(yearCode) || 1,
+    branch: parts[0].toUpperCase(),
+    year: parseInt(parts[1][0]) || 1,
   };
 }
 
 /**
- * Utility: Format Date for Campus Feed
+ * Format date for campus feed
  */
 export function formatCampusDate(date: string) {
   return new Intl.DateTimeFormat('en-US', {

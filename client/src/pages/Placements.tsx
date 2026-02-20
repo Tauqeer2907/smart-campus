@@ -15,11 +15,11 @@ import {
   ExternalLink,
   AlertCircle
 } from 'lucide-react';
-import { 
-  PlacementDrive, 
-  mockUsers, 
-  formatCampusDate 
+import {
+  PlacementDrive,
+  formatCampusDate
 } from '@/lib/index';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -96,21 +96,22 @@ const itemVariants = {
 };
 
 export default function Placements() {
-  const currentUser = mockUsers[0]; // Aryan Sharma (CGPA 9.2)
+  const { user } = useAuth();
+  const currentUserCgpa = user?.cgpa ?? 0;
   const [drives, setDrives] = useState<PlacementDrive[]>(MOCK_DRIVES);
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedDrives, setAppliedDrives] = useState<string[]>(['d2', 'd4']);
 
-  const filteredDrives = drives.filter(drive => 
+  const filteredDrives = drives.filter(drive =>
     drive.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
     drive.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleApply = (drive: PlacementDrive) => {
-    if (currentUser.cgpa! < drive.cutoffCgpa) {
+    if (currentUserCgpa < drive.cutoffCgpa) {
       toast({
         title: "Eligibility Error",
-        description: `Your CGPA (${currentUser.cgpa}) is below the required ${drive.cutoffCgpa} for this drive.`,
+        description: `Your CGPA (${currentUserCgpa}) is below the required ${drive.cutoffCgpa} for this drive.`,
         variant: "destructive",
       });
       return;
@@ -126,7 +127,7 @@ export default function Placements() {
   return (
     <div className="min-h-screen bg-background text-foreground p-6 md:p-10 space-y-10">
       {/* Hero Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-3xl p-10 bg-gradient-to-br from-primary/20 via-background to-accent/10 border border-primary/20 shadow-2xl shadow-primary/5"
@@ -152,7 +153,7 @@ export default function Placements() {
             </div>
           </div>
         </div>
-        
+
         {/* Decorative elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent/10 rounded-full blur-3xl -ml-20 -mb-20" />
@@ -160,7 +161,7 @@ export default function Placements() {
 
       {/* Stats Bar */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[ 
+        {[
           { label: 'Active Drives', value: '42', icon: <Briefcase className="w-4 h-4" /> },
           { label: 'Applied', value: appliedDrives.length.toString(), icon: <CheckCircle2 className="w-4 h-4" /> },
           { label: 'Upcoming', value: '15', icon: <Calendar className="w-4 h-4" /> },
@@ -184,7 +185,7 @@ export default function Placements() {
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input 
+          <Input
             placeholder="Search companies or roles..."
             className="pl-10 bg-card/40 border-white/10"
             value={searchTerm}
@@ -199,7 +200,7 @@ export default function Placements() {
       </div>
 
       {/* Drives Grid */}
-      <motion.div 
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -207,8 +208,8 @@ export default function Placements() {
       >
         {filteredDrives.map((drive) => {
           const isApplied = appliedDrives.includes(drive.id);
-          const isEligible = currentUser.cgpa! >= drive.cutoffCgpa;
-          
+          const isEligible = currentUserCgpa >= drive.cutoffCgpa;
+
           return (
             <motion.div key={drive.id} variants={itemVariants}>
               <Card className="group bg-card/40 backdrop-blur-md border-white/5 hover:border-primary/50 transition-all duration-300 h-full flex flex-col">
@@ -260,7 +261,7 @@ export default function Placements() {
                         {STAGES.map((stage, idx) => {
                           const isPast = idx < STAGES.indexOf(drive.status === 'open' ? 'Applied' : drive.status.charAt(0).toUpperCase() + drive.status.slice(1));
                           const isCurrent = STAGES.indexOf(drive.status === 'open' ? 'Applied' : drive.status.charAt(0).toUpperCase() + drive.status.slice(1)) === idx;
-                          
+
                           return (
                             <div key={stage} className="flex flex-col items-center gap-1 relative flex-1">
                               <div className={`w-2.5 h-2.5 rounded-full z-10 ${isPast || isCurrent ? 'bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]' : 'bg-muted'}`} />
@@ -283,7 +284,7 @@ export default function Placements() {
                       <CheckCircle2 className="w-4 h-4 mr-2" /> Application Sent
                     </Button>
                   ) : (
-                    <Button 
+                    <Button
                       className="w-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-300 border border-primary/20"
                       disabled={!isEligible}
                       onClick={() => handleApply(drive)}
@@ -311,7 +312,7 @@ export default function Placements() {
 
       {/* Bottom Floating Tip */}
       <AnimatePresence>
-        <motion.div 
+        <motion.div
           initial={{ y: 100 }}
           animate={{ y: 0 }}
           className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50"

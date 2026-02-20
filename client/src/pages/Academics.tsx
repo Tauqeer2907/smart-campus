@@ -1,27 +1,26 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BookOpen, 
-  User, 
-  Award, 
-  Calendar, 
-  ChevronDown, 
-  GraduationCap, 
+import {
+  BookOpen,
+  User,
+  Award,
+  Calendar,
+  ChevronDown,
+  GraduationCap,
   Clock,
   LayoutDashboard,
   Filter
 } from 'lucide-react';
-import { 
-  mockAttendanceData, 
-  AttendanceData 
+import {
+  AttendanceData
 } from '@/lib/index';
 import { AttendanceTrendChart } from '@/components/Charts';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,23 +63,20 @@ export default function Academics() {
   const [branch, setBranch] = useState('COMP');
   const [semester, setSemester] = useState('2');
 
-  // Transform trend data for the chart
-  const chartData = mockAttendanceData.map(subject => ({
-    name: subject.subject,
-    ...subject.trend.reduce((acc, val, idx) => ({ ...acc, [`Week ${idx + 1}`]: val }), {})
-  }));
+  // Attendance data from backend (empty until API connected)
+  const attendanceData: AttendanceData[] = [];
 
-  // For the actual chart, let's just pick one subject's trend for a cleaner LineChart view 
-  // or average them. Let's provide a generic weekly average for the trend.
   const weeklyTrendData = [1, 2, 3, 4, 5].map(week => ({
     name: `Week ${week}`,
-    attendance: mockAttendanceData.reduce((acc, curr) => acc + (curr.trend[week - 1] || curr.trend[curr.trend.length - 1]), 0) / mockAttendanceData.length
+    attendance: attendanceData.length
+      ? attendanceData.reduce((acc, curr) => acc + (curr.trend[week - 1] || curr.trend[curr.trend.length - 1]), 0) / attendanceData.length
+      : 0,
   }));
 
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-8">
       {/* Header Section */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         className="flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -105,7 +101,7 @@ export default function Academics() {
                 ))}
               </SelectContent>
             </Select>
-            
+
             <div className="h-4 w-px bg-border" />
 
             <Select value={semester} onValueChange={setSemester}>
@@ -119,7 +115,7 @@ export default function Academics() {
               </SelectContent>
             </Select>
           </div>
-          
+
           <Button variant="outline" size="icon" className="bg-card/50">
             <Filter className="w-4 h-4" />
           </Button>
@@ -140,7 +136,7 @@ export default function Academics() {
                 <CardDescription>Aggregate weekly trend across all subjects</CardDescription>
               </div>
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                Current Avg: {(mockAttendanceData.reduce((a, b) => a + b.percentage, 0) / mockAttendanceData.length).toFixed(1)}%
+                Current Avg: {attendanceData.length ? (attendanceData.reduce((a, b) => a + b.percentage, 0) / attendanceData.length).toFixed(1) : '–'}%
               </Badge>
             </div>
           </CardHeader>
@@ -157,19 +153,19 @@ export default function Academics() {
           Course Curriculum
         </h2>
 
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {mockAttendanceData.map((subject) => (
+          {attendanceData.map((subject) => (
             <motion.div key={subject.subject} variants={itemVariants}>
               <Card className="h-full bg-card/40 backdrop-blur-md border-white/5 hover:border-primary/30 transition-all group overflow-hidden relative">
                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                   <GraduationCap className="w-16 h-16" />
                 </div>
-                
+
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <Badge variant="secondary" className="bg-primary/20 text-primary hover:bg-primary/30">
@@ -219,7 +215,7 @@ export default function Academics() {
       </div>
 
       {/* Bottom Quick Actions */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.8 }}

@@ -20,7 +20,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { CampusEvent, getAllRegistrations } from '@/hooks/useNotifications';
-import { mockUsers } from '@/lib/index';
 
 const EVENTS_KEY = 'unicampus_events_2026';
 const REGISTRATIONS_KEY = 'unicampus_event_registrations_2026';
@@ -63,8 +62,8 @@ export default function AdminEvents() {
         return Object.entries(registrations)
             .filter(([, eventIds]) => eventIds.includes(eventId))
             .map(([userId]) => {
-                const user = mockUsers.find(u => u.id === userId);
-                return user ?? { id: userId, name: `Student ${userId}`, role: 'student', email: `uid_${userId}@nit.edu`, studentId: userId };
+                // Student info comes from localStorage registration data (backend will return populated user objects)
+                return { id: userId, name: `Student ${userId}`, role: 'student' as const, email: `uid_${userId}@nit.edu`, studentId: userId };
             });
     };
 
