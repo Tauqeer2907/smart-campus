@@ -1,6 +1,6 @@
 # UNICAMPUS
 
-Smart Campus 2 is a full-stack application designed to streamline campus management processes. It includes features for students, faculty, and administrators, such as attendance tracking, library management, grading, and more.
+UNICAMPUS is a full-stack application designed to streamline campus management processes. It includes features for students, faculty, and administrators, such as attendance tracking, library management, grading, and more.
 
 ## Features
 
