@@ -272,21 +272,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </motion.div>
         </div>
 
-        {/* Mobile Navigation (Bottom Bar) */}
-        <div className="lg:hidden flex items-center justify-around h-16 bg-card/80 backdrop-blur-xl border-t border-white/10 px-2">
-          {navItems.slice(0, 5).map((item) => (
+        {/* Mobile Navigation (Bottom Bar) — scrollable, shows all nav icons */}
+        <div className="lg:hidden flex items-center h-16 bg-card/90 backdrop-blur-xl border-t border-white/10 overflow-x-auto scrollbar-hide px-1">
+          {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
                 cn(
-                  "flex flex-col items-center justify-center gap-1 transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  "flex flex-col items-center justify-center gap-0.5 min-w-[60px] px-2 py-1.5 transition-colors rounded-xl mx-0.5",
+                  isActive
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground"
                 )
               }
             >
-              <item.icon className="w-5 h-5" />
-              <span className="text-[10px] font-medium">{item.label}</span>
+              <item.icon className="w-5 h-5 shrink-0" />
+              <span className="text-[9px] font-medium whitespace-nowrap">{item.label}</span>
             </NavLink>
           ))}
         </div>
