@@ -18,12 +18,14 @@ export const ROUTE_PATHS = {
   HOSTEL: '/student/hostel',
   FINANCE: '/student/finance',
   FEEDBACK: '/student/feedback',
+  STUDENT_EVENTS: '/student/events',
   // Faculty Routes
   FACULTY_DASHBOARD: '/faculty/dashboard',
   FACULTY_ATTENDANCE: '/faculty/attendance',
   GRADING: '/faculty/grading',
   RESOURCES: '/faculty/resources',
   RECOMMENDATIONS: '/faculty/recommendations',
+  FACULTY_EVENTS: '/faculty/events',
   // Admin Routes
   ADMIN_DASHBOARD: '/admin/dashboard',
   PLACEMENT_MGMT: '/admin/placements',
@@ -31,6 +33,7 @@ export const ROUTE_PATHS = {
   FINANCE_LEDGER: '/admin/finance',
   FEEDBACK_ANALYTICS: '/admin/feedback',
   FACULTY_OVERSIGHT: '/admin/faculty-oversight',
+  ADMIN_EVENTS: '/admin/events',
 } as const;
 
 export interface User {
@@ -167,10 +170,10 @@ export const mockAttendanceData: AttendanceData[] = [
 export function parseStudentId(id: string) {
   const parts = id.split('_');
   if (parts.length < 2) return null;
-  
+
   const branch = parts[0];
   const yearCode = parts[1][0]; // Assuming first digit is year
-  
+
   return {
     branch: branch.toUpperCase(),
     year: parseInt(yearCode) || 1,

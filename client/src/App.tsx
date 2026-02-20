@@ -21,18 +21,21 @@ import Assignments from '@/pages/Assignments';
 import Library from '@/pages/Library';
 import Hostel from '@/pages/Hostel';
 import Placements from '@/pages/Placements';
+import StudentEvents from '@/pages/StudentEvents';
 import Feedback from '@/pages/Feedback';
 import FacultyDashboard from '@/pages/FacultyDashboard';
 import FacultyAttendance from '@/pages/FacultyAttendance';
 import Grading from '@/pages/Grading';
 import Resources from '@/pages/Resources';
 import RecommendationLetters from '@/pages/RecommendationLetters';
+import FacultyEvents from '@/pages/FacultyEvents';
 import AdminDashboard from '@/pages/AdminDashboard';
 import PlacementManagement from '@/pages/PlacementManagement';
 import LibraryManagement from '@/pages/LibraryManagement';
 import FinanceLedger from '@/pages/FinanceLedger';
 import FeedbackAnalytics from '@/pages/FeedbackAnalytics';
 import FacultyOversight from '@/pages/FacultyOversight';
+import AdminEvents from '@/pages/AdminEvents';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +121,7 @@ const App = () => {
             <Route path={ROUTE_PATHS.LIBRARY} element={<ProtectedRoute allowedRoles={['student']}><Library /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.HOSTEL} element={<ProtectedRoute allowedRoles={['student']}><Hostel /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.PLACEMENTS} element={<ProtectedRoute allowedRoles={['student']}><Placements /></ProtectedRoute>} />
+            <Route path={ROUTE_PATHS.STUDENT_EVENTS} element={<ProtectedRoute allowedRoles={['student']}><StudentEvents /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.FEEDBACK} element={<ProtectedRoute allowedRoles={['student']}><Feedback /></ProtectedRoute>} />
 
             {/* Faculty Routes */}
@@ -126,6 +130,7 @@ const App = () => {
             <Route path={ROUTE_PATHS.GRADING} element={<ProtectedRoute allowedRoles={['faculty']}><Grading /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.RESOURCES} element={<ProtectedRoute allowedRoles={['faculty']}><Resources /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.RECOMMENDATIONS} element={<ProtectedRoute allowedRoles={['faculty']}><RecommendationLetters /></ProtectedRoute>} />
+            <Route path={ROUTE_PATHS.FACULTY_EVENTS} element={<ProtectedRoute allowedRoles={['faculty']}><FacultyEvents /></ProtectedRoute>} />
 
             {/* Admin Routes */}
             <Route path={ROUTE_PATHS.ADMIN_DASHBOARD} element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
@@ -134,6 +139,7 @@ const App = () => {
             <Route path={ROUTE_PATHS.FINANCE_LEDGER} element={<ProtectedRoute allowedRoles={['admin']}><FinanceLedger /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.FEEDBACK_ANALYTICS} element={<ProtectedRoute allowedRoles={['admin']}><FeedbackAnalytics /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.FACULTY_OVERSIGHT} element={<ProtectedRoute allowedRoles={['admin']}><FacultyOversight /></ProtectedRoute>} />
+            <Route path={ROUTE_PATHS.ADMIN_EVENTS} element={<ProtectedRoute allowedRoles={['admin']}><AdminEvents /></ProtectedRoute>} />
 
             {/* <Route path="/" element={<RootRedirect />} />  Removed to allow Landing Page */}
             <Route path="*" element={<Navigate to="/" replace />} />

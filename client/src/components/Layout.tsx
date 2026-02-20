@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   GraduationCap,
   CalendarCheck,
+  CalendarDays,
   FileText,
   Briefcase,
   Book,
@@ -29,10 +30,12 @@ import {
   LogOut,
   UserCircle,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  CalendarPlus,
 } from 'lucide-react';
 import { ROUTE_PATHS, UserRole } from '@/lib/index';
 import { useAuth } from '@/hooks/useAuth';
+import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +57,7 @@ interface NavItem {
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, switchRole } = useAuth();
+  const { unreadCount, markAllRead } = useNotifications(user?.id);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(3);
@@ -71,6 +75,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: 'Library', path: ROUTE_PATHS.LIBRARY, icon: Book },
     { label: 'Hostel', path: ROUTE_PATHS.HOSTEL, icon: Home },
     { label: 'Placements', path: ROUTE_PATHS.PLACEMENTS, icon: Briefcase },
+    { label: 'Events', path: ROUTE_PATHS.STUDENT_EVENTS, icon: CalendarDays },
     { label: 'Feedback', path: ROUTE_PATHS.FEEDBACK, icon: MessageSquare },
   ];
 
@@ -78,6 +83,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: 'Overview', path: ROUTE_PATHS.FACULTY_DASHBOARD, icon: LayoutDashboard },
     { label: 'Attendance', path: ROUTE_PATHS.FACULTY_ATTENDANCE, icon: ClipboardCheck },
     { label: 'Grading', path: ROUTE_PATHS.GRADING, icon: ClipboardList },
+    { label: 'Events', path: ROUTE_PATHS.FACULTY_EVENTS, icon: CalendarPlus },
     { label: 'Resources', path: ROUTE_PATHS.RESOURCES, icon: Share2 },
     { label: 'Recommendations', path: ROUTE_PATHS.RECOMMENDATIONS, icon: FileEdit },
   ];
@@ -89,6 +95,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { label: 'Finance Ledger', path: ROUTE_PATHS.FINANCE_LEDGER, icon: Landmark },
     { label: 'Analytics', path: ROUTE_PATHS.FEEDBACK_ANALYTICS, icon: PieChart },
     { label: 'Faculty Oversight', path: ROUTE_PATHS.FACULTY_OVERSIGHT, icon: Users },
+    { label: 'Events', path: ROUTE_PATHS.ADMIN_EVENTS, icon: CalendarDays },
   ];
 
   const navItems = user.role === 'admin' ? adminNav : user.role === 'faculty' ? facultyNav : studentNav;
@@ -229,10 +236,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative"
+              onClick={() => { if (user?.role === 'student') markAllRead(); }}
+              title={user?.role === 'student' ? `${unreadCount} unread notifications` : 'Notifications'}
+            >
               <Bell className="w-5 h-5" />
-              {notificationCount > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full animate-pulse shadow-[0_0_8px_rgba(var(--destructive),0.8)]" />
+              {user?.role === 'student' && unreadCount > 0 && (
+                <span className="absolute top-1 right-1 min-w-[18px] h-[18px] bg-destructive text-[10px] text-white rounded-full flex items-center justify-center font-bold px-1 animate-pulse shadow-[0_0_8px_rgba(var(--destructive),0.8)]">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
               )}
             </Button>
             <div className="h-8 w-[1px] bg-white/10 hidden md:block" />
