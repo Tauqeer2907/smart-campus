@@ -260,7 +260,7 @@ export default function AdminEvents() {
                                                                                     </td>
                                                                                     <td className="px-4 py-3 text-muted-foreground">{student.email}</td>
                                                                                     <td className="px-4 py-3 text-muted-foreground font-mono text-xs">
-                                                                                        {'studentId' in student ? student.studentId : student.id}
+                                                                                        {student.studentId ?? student.id}
                                                                                     </td>
                                                                                     <td className="px-4 py-3">
                                                                                         <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20 text-xs gap-1">
