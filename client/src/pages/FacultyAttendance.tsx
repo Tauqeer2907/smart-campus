@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
@@ -26,27 +26,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-
-const MOCK_STUDENTS = [
-  { id: '101', name: 'Aryan Sharma', roll: 'COMP_101', attendance: 92 },
-  { id: '102', name: 'Rohan Gupta', roll: 'COMP_102', attendance: 71 },
-  { id: '103', name: 'Sneha Kapoor', roll: 'COMP_103', attendance: 85 },
-  { id: '104', name: 'Ishaan Verma', roll: 'COMP_104', attendance: 64 },
-  { id: '105', name: 'Ananya Iyer', roll: 'COMP_105', attendance: 95 },
-  { id: '106', name: 'Kabir Singh', roll: 'COMP_106', attendance: 78 },
-  { id: '107', name: 'Meera Reddy', roll: 'COMP_107', attendance: 82 },
-  { id: '108', name: 'Aditya Das', roll: 'COMP_108', attendance: 58 },
-];
+import { useAuth } from '@/hooks/useAuth';
 
 type AttendanceStatus = 'present' | 'absent' | 'late' | 'unmarked';
 
+interface StudentRow {
+  id: string;
+  name: string;
+  roll: string;
+  studentId: string;
+  attendance: number;
+}
+
 export default function FacultyAttendance() {
+  const { user, getAuthToken } = useAuth();
   const [subject, setSubject] = useState('Data Structures');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>(
-    Object.fromEntries(MOCK_STUDENTS.map((s) => [s.id, 'unmarked']))
-  );
+  const [students, setStudents] = useState<StudentRow[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, any>>({});
+  const [attendance, setAttendance] = useState<Record<string, AttendanceStatus>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   const stats = useMemo(() => {
     const values = Object.values(attendance);
@@ -55,9 +55,59 @@ export default function FacultyAttendance() {
       absent: values.filter((v) => v === 'absent').length,
       late: values.filter((v) => v === 'late').length,
       unmarked: values.filter((v) => v === 'unmarked').length,
-      total: MOCK_STUDENTS.length,
+      total: students.length,
     };
-  }, [attendance]);
+  }, [attendance, students.length]);
+
+  const normalizeStudentId = (student: any) =>
+    String(student.studentId || student.rollNumber || student.id || '').trim();
+
+  const loadRoster = async () => {
+    try {
+      setIsLoading(true);
+      const token = getAuthToken();
+      const usersResponse = await fetch('http://localhost:5000/api/users?role=student', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const users = await usersResponse.json();
+      const approved = (Array.isArray(users) ? users : []).filter((u) => u.status !== 'rejected' && u.role === 'student');
+
+      const attendanceResponse = await fetch(`http://localhost:5000/api/attendance?subject=${encodeURIComponent(subject)}`);
+      const attendanceData = await attendanceResponse.json();
+      const records = Array.isArray(attendanceData) ? attendanceData : [];
+
+      const recordMap: Record<string, any> = {};
+      records.forEach((record: any) => {
+        const key = String(record.studentId || record.rollNumber || record.id || '').trim();
+        if (key) recordMap[key] = record;
+      });
+
+      const rows: StudentRow[] = approved.map((student) => {
+        const studentKey = normalizeStudentId(student);
+        const record = recordMap[studentKey];
+        return {
+          id: studentKey,
+          name: student.name || 'Student',
+          roll: student.rollNumber || student.studentId || studentKey,
+          studentId: studentKey,
+          attendance: Number(record?.percentage || 0),
+        };
+      });
+
+      setStudents(rows);
+      setAttendanceRecords(recordMap);
+      setAttendance(Object.fromEntries(rows.map((s) => [s.id, 'unmarked'])));
+    } catch (error) {
+      console.error('Failed to load roster:', error);
+      toast.error('Failed to load student roster');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRoster();
+  }, [subject]);
 
   const updateStatus = (id: string, status: AttendanceStatus) => {
     setAttendance((prev) => ({
@@ -78,12 +128,58 @@ export default function FacultyAttendance() {
       toast.error(`Please mark attendance for all ${stats.unmarked} remaining students.`);
       return;
     }
-    toast.success('Attendance records synced with main server.', {
-      description: `${stats.present} Present, ${stats.absent} Absent, ${stats.late} Late.`,
-    });
+    const submit = async () => {
+      try {
+        const token = getAuthToken();
+        await Promise.all(
+          students.map(async (student) => {
+            const status = attendance[student.id];
+            const present = status === 'present' || status === 'late';
+            const existing = attendanceRecords[student.studentId];
+            if (existing?.id) {
+              const attended = Number(existing.attended || 0) + (present ? 1 : 0);
+              const total = Number(existing.total || 0) + 1;
+              await fetch(`http://localhost:5000/api/attendance/${existing.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  attended,
+                  total,
+                  subject,
+                  studentId: student.studentId,
+                  faculty: user?.name || 'Faculty',
+                }),
+              });
+            } else {
+              await fetch('http://localhost:5000/api/attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  studentId: student.studentId,
+                  subject,
+                  attended: present ? 1 : 0,
+                  total: 1,
+                  faculty: user?.name || 'Faculty',
+                }),
+              });
+            }
+          })
+        );
+
+        toast.success('Attendance records synced with main server.', {
+          description: `${stats.present} Present, ${stats.absent} Absent, ${stats.late} Late.`,
+        });
+        await loadRoster();
+      } catch (error) {
+        console.error('Failed to submit attendance:', error);
+        toast.error('Failed to submit attendance');
+      }
+    };
+
+    submit();
   };
 
-  const filteredStudents = MOCK_STUDENTS.filter(
+  const filteredStudents = students.filter(
     (s) =>
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       s.roll.toLowerCase().includes(searchQuery.toLowerCase())
@@ -120,8 +216,10 @@ export default function FacultyAttendance() {
             </div>
           </div>
           <Button
+            onClick={loadRoster}
             variant="outline"
             className="border-primary/50 text-primary hover:bg-primary/10 gap-2"
+            disabled={isLoading}
           >
             <Plus className="h-4 w-4" />
             Add Attendance
@@ -192,9 +290,9 @@ export default function FacultyAttendance() {
             </thead>
             <tbody className="divide-y divide-white/5">
               <AnimatePresence mode="popLayout">
-                {filteredStudents.map((student) => (
+                {filteredStudents.map((student, index) => (
                   <motion.tr
-                    key={student.id}
+                    key={`${student.id}-${student.roll}-${index}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -288,7 +386,7 @@ export default function FacultyAttendance() {
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground px-2">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
-          <span>Showing {filteredStudents.length} of {MOCK_STUDENTS.length} Students</span>
+          <span>Showing {filteredStudents.length} of {students.length} Students</span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5">

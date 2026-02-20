@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -27,68 +27,169 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
-// Mock Data for Library Catalog
-const LIBRARY_CATALOG = [
-  { id: '1', title: 'Artificial Intelligence: A Modern Approach', author: 'Stuart Russell', category: 'Computer Science', available: 3, isbn: '978-0136042594' },
-  { id: '2', title: 'Clean Code: A Handbook of Agile Software Craftsmanship', author: 'Robert C. Martin', category: 'Software Engineering', available: 0, isbn: '978-0132350884' },
-  { id: '3', title: 'Design Patterns: Elements of Reusable Object-Oriented Software', author: 'Erich Gamma', category: 'Software Engineering', available: 5, isbn: '978-0201633610' },
-  { id: '4', title: 'The Pragmatic Programmer', author: 'Andrew Hunt', category: 'Professional Development', available: 2, isbn: '978-0135957059' },
-  { id: '5', title: 'Discrete Mathematics and Its Applications', author: 'Kenneth Rosen', category: 'Mathematics', available: 8, isbn: '978-0073383095' },
-  { id: '6', title: 'Introduction to Algorithms', author: 'Thomas H. Cormen', category: 'Computer Science', available: 1, isbn: '978-0262033848' },
-];
-
-// Mock Data for Currently Borrowed
-const BORROWED_BOOKS = [
-  {
-    id: 'b1',
-    title: 'Modern Operating Systems',
-    author: 'Andrew S. Tanenbaum',
-    dueDate: '2026-03-05',
-    status: 'borrowed',
-    aiSuggestion: 'Renew before Feb 28 to avoid peak rush points.',
-    progress: 45,
-  },
-  {
-    id: 'b2',
-    title: 'Deep Learning',
-    author: 'Ian Goodfellow',
-    dueDate: '2026-02-18', // Overdue relative to 2026-02-20
-    status: 'overdue',
-    aiSuggestion: 'Urgent: High demand for this title. Return by 6 PM to avoid suspension.',
-    progress: 100,
-  },
-];
+const API_BASE = 'http://localhost:5000';
+const BORROW_WINDOW_DAYS = 14;
 
 export default function Library() {
+  const { user, getAuthToken } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBook, setSelectedBook] = useState<typeof LIBRARY_CATALOG[0] | null>(null);
-  const [isReserved, setIsReserved] = useState(false);
+  const [selectedBook, setSelectedBook] = useState<any | null>(null);
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [borrowedBooks, setBorrowedBooks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBorrowLoading, setIsBorrowLoading] = useState(true);
+
+  const studentId = user?.studentId || user?.rollNumber || user?.id;
+  const getBookId = (book: any) => book?.id || book?._id || book?.bookId || book?.isbn;
+  const getBorrowKey = (book: any, index: number) => {
+    const base = book?.id || book?._id || book?.bookId || book?.isbn || 'borrow';
+    const due = book?.dueDate || 'no-date';
+    return `${base}-${due}-${index}`;
+  };
+
+  const loadCatalog = useCallback(async (query?: string) => {
+    try {
+      setIsLoading(true);
+      const params = new URLSearchParams();
+      if (query) params.append('q', query);
+      const authToken = getAuthToken();
+
+      const response = await fetch(
+        `${API_BASE}/api/library/books/search${params.toString() ? `?${params.toString()}` : ''}`,
+        authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to load catalog');
+      }
+
+      const payload = await response.json();
+      const data = payload?.data ?? payload;
+      setCatalog(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error('Unable to load library catalog right now.');
+      setCatalog([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getAuthToken]);
+
+  const loadBorrowed = useCallback(async () => {
+    if (!studentId) {
+      setBorrowedBooks([]);
+      setIsBorrowLoading(false);
+      return;
+    }
+
+    try {
+      setIsBorrowLoading(true);
+      const authToken = getAuthToken();
+      const response = await fetch(
+        `${API_BASE}/api/library/my-books`,
+        authToken ? { headers: { Authorization: `Bearer ${authToken}` } } : undefined
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to load borrowed books');
+      }
+
+      const payload = await response.json();
+      const data = payload?.data ?? payload;
+      setBorrowedBooks(Array.isArray(data) ? data : []);
+    } catch (error) {
+      toast.error('Unable to load borrowed books right now.');
+      setBorrowedBooks([]);
+    } finally {
+      setIsBorrowLoading(false);
+    }
+  }, [studentId, getAuthToken]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  useEffect(() => {
+    loadBorrowed();
+  }, [loadBorrowed]);
 
   const filteredCatalog = useMemo(() => {
-    return LIBRARY_CATALOG.filter((book) =>
+    return catalog.filter((book) =>
       book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
       book.category.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, catalog]);
 
-  const handleReserve = (book: typeof LIBRARY_CATALOG[0]) => {
+  const handleReserve = (book: any) => {
     setSelectedBook(book);
   };
 
-  const confirmReservation = () => {
-    toast.success(`Successfully reserved "${selectedBook?.title}"! You'll be notified when it's ready for pickup.`);
-    setSelectedBook(null);
+  const confirmReservation = async () => {
+    if (!selectedBook || !studentId) {
+      toast.error('Please log in to reserve a book.');
+      return;
+    }
+
+    const bookId = getBookId(selectedBook);
+    if (!bookId) {
+      toast.error('Unable to reserve this book right now.');
+      return;
+    }
+
+    try {
+      const authToken = getAuthToken();
+      const response = await fetch(`${API_BASE}/api/library/reserve/${bookId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Reservation failed');
+      }
+
+      toast.success(`Successfully reserved "${selectedBook.title}"! You'll be notified when it's ready.`);
+      setSelectedBook(null);
+      loadCatalog(searchQuery);
+      loadBorrowed();
+    } catch (error: any) {
+      toast.error(error?.message || 'Unable to reserve this book right now.');
+    }
   };
 
-  const handleRenew = (title: string) => {
-    toast.success(`Renewal request submitted for "${title}". AI Analysis: Approval likely.`);
+  const handleRenew = async (issueId: string | undefined, title: string) => {
+    if (!issueId) {
+      toast.error('Unable to renew this book right now.');
+      return;
+    }
+
+    try {
+      const authToken = getAuthToken();
+      const response = await fetch(`${API_BASE}/api/library/renew/${issueId}`, {
+        method: 'POST',
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Renewal failed');
+      }
+
+      toast.success(`Renewal approved for "${title}".`);
+      loadBorrowed();
+    } catch (error: any) {
+      toast.error(error?.message || 'Unable to renew this book right now.');
+    }
   };
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-10 min-h-screen bg-background text-foreground">
-      {/* Hero Section with Search */}
       <section className="relative overflow-hidden rounded-3xl p-8 bg-gradient-to-br from-primary/10 via-background to-accent/5 border border-primary/20 shadow-2xl shadow-primary/5">
         <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
           <Book className="w-48 h-48 rotate-12" />
@@ -112,7 +213,7 @@ export default function Library() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <Button size="lg" className="h-12 px-8 font-semibold">
+            <Button size="lg" className="h-12 px-8 font-semibold" onClick={() => loadCatalog(searchQuery)}>
               Find Resources
             </Button>
           </div>
@@ -120,7 +221,6 @@ export default function Library() {
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Currently Borrowed Column */}
         <div className="lg:col-span-1 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold flex items-center gap-2">
@@ -128,74 +228,93 @@ export default function Library() {
               Active Borrows
             </h2>
             <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-              {BORROWED_BOOKS.length} Items
+              {borrowedBooks.length} Items
             </Badge>
           </div>
 
           <div className="space-y-4">
-            {BORROWED_BOOKS.map((book) => (
-              <motion.div
-                key={book.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                whileHover={{ y: -4 }}
-                className={`group relative overflow-hidden rounded-xl border p-5 bg-card/50 backdrop-blur-xl transition-all shadow-sm ${book.status === 'overdue' ? 'border-destructive/30' : 'border-white/10'}`}
-              >
-                <div className="space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">
-                        {book.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{book.author}</p>
-                    </div>
-                    {book.status === 'overdue' && (
-                      <Badge variant="destructive" className="animate-pulse">
-                        Overdue
-                      </Badge>
-                    )}
-                  </div>
+            {isBorrowLoading && (
+              <div className="text-sm text-muted-foreground">Loading borrowed books...</div>
+            )}
 
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="flex items-center gap-1 text-muted-foreground">
-                        <Clock className="w-3 h-3" /> Due: {book.dueDate}
-                      </span>
-                      <span className="font-mono">{book.status === 'overdue' ? 'Critical' : 'Safe'}</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${book.progress}%` }}
-                        className={`h-full ${book.status === 'overdue' ? 'bg-destructive' : 'bg-primary'}`}
-                      />
-                    </div>
-                  </div>
+            {!isBorrowLoading && borrowedBooks.length === 0 && (
+              <div className="text-sm text-muted-foreground">No active borrowings for your account.</div>
+            )}
 
-                  {/* AI Suggestion Chip */}
-                  <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 flex gap-2 items-start">
-                    <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                    <p className="text-[11px] leading-relaxed text-accent-foreground font-medium">
-                      {book.aiSuggestion}
-                    </p>
-                  </div>
+            {borrowedBooks.map((book, index) => {
+              const daysRemaining = book.daysRemaining ?? 0;
+              const isOverdue = Boolean(book.isOverdue) || daysRemaining < 0;
+              const isUrgent = Boolean(book.isUrgent) || daysRemaining <= 2;
+              const normalizedRemaining = Math.max(0, Math.min(BORROW_WINDOW_DAYS, daysRemaining));
+              const progress = Math.round(((BORROW_WINDOW_DAYS - normalizedRemaining) / BORROW_WINDOW_DAYS) * 100);
+              const suggestion = isOverdue
+                ? 'Urgent: Return immediately to avoid fines.'
+                : isUrgent
+                ? 'Due soon. Renew now to avoid penalties.'
+                : 'You are on track. Keep an eye on the due date.';
 
-                  <Button
-                    variant={book.status === 'overdue' ? 'destructive' : 'outline'}
-                    className="w-full text-xs h-9"
-                    onClick={() => handleRenew(book.title)}
-                    disabled={book.status === 'overdue'}
-                  >
-                    <RefreshCw className="w-3 h-3 mr-2" />
-                    Renew Book
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+              return (
+                <motion.div
+                  key={getBorrowKey(book, index)}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  whileHover={{ y: -4 }}
+                  className={`group relative overflow-hidden rounded-xl border p-5 bg-card/50 backdrop-blur-xl transition-all shadow-sm ${isOverdue ? 'border-destructive/30' : 'border-white/10'}`}
+                >
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors">
+                          {book.bookTitle || book.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{book.author || 'Library Catalog'}</p>
+                      </div>
+                      {isOverdue && (
+                        <Badge variant="destructive" className="animate-pulse">
+                          Overdue
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Clock className="w-3 h-3" /> Due: {new Date(book.dueDate).toLocaleDateString()}
+                        </span>
+                        <span className="font-mono">{isOverdue ? 'Critical' : 'Safe'}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          className={`h-full ${isOverdue ? 'bg-destructive' : 'bg-primary'}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-accent/10 border border-accent/20 flex gap-2 items-start">
+                      <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed text-accent-foreground font-medium">
+                        {suggestion}
+                      </p>
+                    </div>
+
+                    <Button
+                      variant={isOverdue ? 'destructive' : 'outline'}
+                      className="w-full text-xs h-9"
+                      onClick={() => handleRenew(getBookId(book), book.bookTitle || book.title)}
+                      disabled={isOverdue}
+                    >
+                      <RefreshCw className="w-3 h-3 mr-2" />
+                      Renew Book
+                    </Button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Catalog Grid Column */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold flex items-center gap-2">
@@ -208,11 +327,15 @@ export default function Library() {
             </div>
           </div>
 
+          {isLoading && (
+            <div className="text-sm text-muted-foreground">Loading catalog...</div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AnimatePresence mode='popLayout'>
-              {filteredCatalog.map((book) => (
+              {filteredCatalog.map((book, index) => (
                 <motion.div
-                  key={book.id}
+                  key={getBookId(book) || `catalog-${index}`}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -259,30 +382,14 @@ export default function Library() {
                               Confirm Reservation
                             </DialogTitle>
                             <DialogDescription>
-                              You are requesting to reserve "{selectedBook?.title}".
+                              Reserve "{selectedBook?.title}" by {selectedBook?.author}? We will notify you when it is ready for pickup.
                             </DialogDescription>
                           </DialogHeader>
-                          <div className="py-4 space-y-4">
-                            <div className="rounded-lg bg-muted/50 p-4 border border-white/5 space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Collection Point</span>
-                                <span className="font-medium">Central Library Wing B</span>
-                              </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Hold Period</span>
-                                <span className="font-medium">48 Hours</span>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                              <AlertCircle className="w-4 h-4 text-primary shrink-0" />
-                              <p className="text-xs text-primary/80">
-                                AI Insight: This book is frequently returned early. You might get it sooner than estimated.
-                              </p>
-                            </div>
-                          </div>
-                          <DialogFooter>
-                            <Button variant="ghost" onClick={() => setSelectedBook(null)}>Cancel</Button>
-                            <Button onClick={confirmReservation}>Confirm Request</Button>
+                          <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="outline" onClick={() => setSelectedBook(null)}>
+                              Cancel
+                            </Button>
+                            <Button onClick={confirmReservation}>Confirm</Button>
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
@@ -291,17 +398,11 @@ export default function Library() {
                 </motion.div>
               ))}
             </AnimatePresence>
-
-            {filteredCatalog.length === 0 && (
-              <div className="col-span-full py-20 text-center space-y-4">
-                <Search className="w-12 h-12 text-muted-foreground mx-auto opacity-20" />
-                <p className="text-muted-foreground">No books found matching "{searchQuery}"</p>
-                <Button variant="link" onClick={() => setSearchQuery('')} className="text-primary">
-                  Clear all filters
-                </Button>
-              </div>
-            )}
           </div>
+
+          {!isLoading && filteredCatalog.length === 0 && (
+            <div className="text-sm text-muted-foreground">No books match your search.</div>
+          )}
         </div>
       </div>
     </div>

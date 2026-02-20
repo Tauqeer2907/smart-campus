@@ -8,28 +8,50 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 const FacultyLogin = () => {
-    const [username, setUsername] = useState('FACULTY_01');
-    const [password, setPassword] = useState('password');
+    const [identifier, setIdentifier] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAuth();
+    const { loginWithToken } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            if (!username.startsWith('FACULTY')) {
-                // Just a hint for the demo
-                toast.info("Tip: Faculty IDs usually start with 'FACULTY'");
+            if (!identifier.trim()) {
+                toast.error('Input Required', {
+                    description: 'Please enter your Faculty ID or Email'
+                });
+                setIsLoading(false);
+                return;
             }
-            await login(username, 'faculty');
-            toast.success('Welcome, Professor.');
+
+            // Make API call to login
+            const response = await axios.post('http://localhost:5000/api/auth/login', {
+                identifier: identifier.trim(),
+                role: 'faculty'
+            });
+
+            const { user, token } = response.data;
+
+            // Login and navigate
+            loginWithToken(user, token);
+            toast.success('Welcome, Professor ' + user.name + '!');
             navigate('/faculty/dashboard');
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('Login failed');
+            const errorMsg = error.response?.data?.error || error.message || 'Login failed';
+            const code = error.response?.data?.code;
+
+            if (code === 'USER_NOT_FOUND') {
+                toast.error('Faculty Account Not Found', {
+                    description: 'Please check your Faculty ID and try again.'
+                });
+            } else {
+                toast.error('Login Failed', { description: errorMsg });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -73,27 +95,13 @@ const FacultyLogin = () => {
                         <CardContent className="px-0">
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="username">Faculty ID</Label>
+                                    <Label htmlFor="identifier">Faculty ID or Email</Label>
                                     <Input
-                                        id="username"
+                                        id="identifier"
                                         type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="e.g. FACULTY_01"
-                                        className="h-11 focus-visible:ring-amber-500"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <Label htmlFor="password">Password</Label>
-                                    </div>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
+                                        value={identifier}
+                                        onChange={(e) => setIdentifier(e.target.value)}
+                                        placeholder="e.g. FAC2024001 or faculty@nitcampus.edu"
                                         className="h-11 focus-visible:ring-amber-500"
                                         required
                                     />

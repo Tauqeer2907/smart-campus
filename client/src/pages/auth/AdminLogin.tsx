@@ -8,24 +8,50 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 const AdminLogin = () => {
-    const [username, setUsername] = useState('ADMIN_01');
-    const [password, setPassword] = useState('password');
+    const [identifier, setIdentifier] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAuth();
+    const { loginWithToken } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            await login(username, 'admin');
-            toast.success('System Access Granted');
+            if (!identifier.trim()) {
+                toast.error('Input Required', {
+                    description: 'Please enter your Admin ID or Email'
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            // Make API call to login
+            const response = await axios.post('http://localhost:5000/api/auth/login', {
+                identifier: identifier.trim(),
+                role: 'admin'
+            });
+
+            const { user, token } = response.data;
+
+            // Login and navigate
+            loginWithToken(user, token);
+            toast.success('System Access Granted - Welcome!');
             navigate('/admin/dashboard');
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('Access Denied');
+            const errorMsg = error.response?.data?.error || error.message || 'Login failed';
+            const code = error.response?.data?.code;
+
+            if (code === 'USER_NOT_FOUND') {
+                toast.error('Admin Account Not Found', {
+                    description: 'Please check your credentials and try again.'
+                });
+            } else {
+                toast.error('Access Denied', { description: errorMsg });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -69,27 +95,13 @@ const AdminLogin = () => {
                         <CardContent className="px-0">
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="username">Admin ID</Label>
+                                    <Label htmlFor="identifier">Admin ID or Email</Label>
                                     <Input
-                                        id="username"
+                                        id="identifier"
                                         type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="e.g. ADMIN_01"
-                                        className="h-11 focus-visible:ring-red-500"
-                                        required
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <Label htmlFor="password">Password</Label>
-                                    </div>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
+                                        value={identifier}
+                                        onChange={(e) => setIdentifier(e.target.value)}
+                                        placeholder="e.g. ADM2024001 or admin@nitcampus.edu"
                                         className="h-11 focus-visible:ring-red-500"
                                         required
                                     />

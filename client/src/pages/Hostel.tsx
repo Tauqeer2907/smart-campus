@@ -71,6 +71,11 @@ export default function Hostel() {
   const [tickets, setTickets] = useState(INITIAL_TICKETS);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [formData, setFormData] = useState({
+    room: 'B-302',
+    category: 'electrical',
+    description: '',
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -78,17 +83,37 @@ export default function Hostel() {
     }
   };
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
+  const handleSubmitTicket = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.description.trim()) {
+      toast.error('Please add a description before submitting.');
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    const categoryLabel = CATEGORIES.find((c) => c.value === formData.category)?.label || 'General';
+
+    try {
+      const response = await fetch('http://localhost:5000/api/hostel/complaints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomNumber: formData.room,
+          category: categoryLabel,
+          description: formData.description.trim(),
+          photoFileName: selectedFile?.name || null,
+        }),
+      });
+
+      const saved = await response.json().catch(() => null);
+      const ticketIdSuffix = saved?.id ? String(saved.id).slice(-4).toUpperCase() : `${Math.floor(1000 + Math.random() * 9000)}`;
+
       const newTicket = {
-        id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
-        room: 'B-302',
-        category: 'General',
-        description: 'New maintenance request submitted via dashboard.',
+        id: `TKT-${ticketIdSuffix}`,
+        room: formData.room,
+        category: categoryLabel,
+        description: formData.description.trim(),
         status: 'Requested',
         timestamp: new Date().toLocaleString(),
         progress: 25,
@@ -97,11 +122,35 @@ export default function Hostel() {
         priority: 'Medium',
       };
 
-      setTickets([newTicket, ...tickets]);
-      setIsSubmitting(false);
+      setTickets((prev) => [newTicket, ...prev]);
+      setFormData((prev) => ({ ...prev, description: '', category: 'electrical' }));
       setSelectedFile(null);
-      toast.success("Ticket submitted successfully! Our team will be assigned shortly.");
-    }, 1500);
+
+      if (!response.ok) {
+        toast.success('Ticket added locally and shown in Active Requests.');
+      } else {
+        toast.success('Ticket submitted successfully! Our team will be assigned shortly.');
+      }
+    } catch (error) {
+      const offlineTicket = {
+        id: `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+        room: formData.room,
+        category: categoryLabel,
+        description: formData.description.trim(),
+        status: 'Requested',
+        timestamp: new Date().toLocaleString(),
+        progress: 25,
+        steps: ['Requested', 'Assigned', 'In Progress', 'Fixed'],
+        currentStep: 0,
+        priority: 'Medium',
+      };
+      setTickets((prev) => [offlineTicket, ...prev]);
+      setFormData((prev) => ({ ...prev, description: '', category: 'electrical' }));
+      setSelectedFile(null);
+      toast.success('Ticket added to Active Requests.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResolve = (id: string) => {
@@ -150,14 +199,17 @@ export default function Hostel() {
                     <Label htmlFor="room">Room Number</Label>
                     <Input
                       id="room"
-                      defaultValue="B-302"
+                      value={formData.room}
                       disabled
                       className="bg-muted/50 border-white/5 font-mono text-primary"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="category">Category</Label>
-                    <Select defaultValue="electrical">
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, category: value }))}
+                    >
                       <SelectTrigger className="bg-muted/30 border-white/10">
                         <SelectValue placeholder="Select issue type" />
                       </SelectTrigger>
@@ -181,6 +233,8 @@ export default function Hostel() {
                     id="description"
                     placeholder="Describe the issue in detail..."
                     className="min-h-[100px] bg-muted/30 border-white/10 focus:border-primary/50 transition-colors"
+                    value={formData.description}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                     required
                   />
                 </div>
@@ -348,9 +402,7 @@ export default function Hostel() {
                           Confirm Resolved
                         </Button>
                       ) : (
-                        <Button variant="ghost" size="sm" className="text-xs text-primary hover:text-primary hover:bg-primary/10">
-                          View History <ChevronRight className="w-3 h-3 ml-1" />
-                        </Button>
+                        <div />
                       )}
                     </div>
                   </CardContent>

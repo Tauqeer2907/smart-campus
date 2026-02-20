@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+﻿import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -16,56 +16,117 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
-const mockAssignments: Assignment[] = [
-  {
-    id: 'asgn_01',
-    title: 'Database Normalization Lab',
-    subject: 'Database Systems',
-    dueDate: '2026-02-25',
-    status: 'pending',
-    branch: 'COMP',
-    module: 'Module 3',
-    timestamp: '2026-02-20T10:00:00Z',
-  },
-  {
-    id: 'asgn_02',
-    title: 'Kernel Synchronization Project',
-    subject: 'Operating Systems',
-    dueDate: '2026-02-18',
-    status: 'submitted',
-    branch: 'COMP',
-    module: 'Module 4',
-    timestamp: '2026-02-17T14:30:00Z',
-  },
-  {
-    id: 'asgn_03',
-    title: 'Dijkstra Algorithm Implementation',
-    subject: 'Data Structures',
-    dueDate: '2026-02-15',
-    status: 'graded',
-    grade: 'A+',
-    branch: 'COMP',
-    module: 'Module 2',
-    timestamp: '2026-02-14T09:15:00Z',
-  },
-  {
-    id: 'asgn_04',
-    title: 'TCP/IP Header Analysis',
-    subject: 'Computer Networks',
-    dueDate: '2026-02-28',
-    status: 'pending',
-    branch: 'COMP',
-    module: 'Module 5',
-    timestamp: '2026-02-19T16:45:00Z',
-  }
-];
+const API_BASE = 'http://localhost:5000';
 
 export default function Assignments() {
-  const [assignments, setAssignments] = useState<Assignment[]>(mockAssignments);
+  const { user } = useAuth();
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchAssignments = async () => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams();
+        if (user?.branch) params.append('branch', user.branch);
+        if (user?.semester) params.append('semester', String(user.semester));
+
+        const response = await fetch(
+          `${API_BASE}/api/assignments${params.toString() ? `?${params.toString()}` : ''}`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to load assignments');
+        }
+
+        const data = await response.json();
+        setAssignments(Array.isArray(data) ? data : []);
+      } catch (error) {
+        toast({
+          title: 'Assignments unavailable',
+          description: 'Unable to load assignments right now.',
+          variant: 'destructive',
+        });
+        setAssignments([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [user?.branch, user?.semester, toast]);
+
+  const processUpload = useCallback(async (file: File) => {
+    const pendingAssignment = assignments.find((a) => a.status === 'pending') || assignments[0];
+    const studentId = user?.studentId || user?.id;
+
+    if (!pendingAssignment) {
+      toast({
+        title: 'No assignment found',
+        description: 'There are no assignments available to submit.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!studentId) {
+      toast({
+        title: 'Missing student ID',
+        description: 'Please log in again to submit assignments.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'File Detected',
+      description: `Uploading ${file.name}...`,
+    });
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('studentId', studentId);
+
+      const response = await fetch(`${API_BASE}/api/assignments/${pendingAssignment.id}/submit`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const updated = await response.json();
+      const updatedAssignment = updated.assignment || updated;
+
+      setAssignments((prev) =>
+        prev.map((assignment) =>
+          assignment.id === updatedAssignment?.id
+            ? { ...assignment, ...updatedAssignment }
+            : assignment,
+        ),
+      );
+
+      toast({
+        title: 'Upload Successful',
+        description: `${pendingAssignment.title} submitted successfully.`,
+        variant: 'default',
+      });
+    } catch (error) {
+      toast({
+        title: 'Upload failed',
+        description: 'Unable to submit the assignment. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  }, [assignments, toast, user?.id, user?.studentId]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -82,20 +143,24 @@ export default function Assignments() {
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      toast({
-        title: "File Detected",
-        description: `Preparing to upload ${files[0].name}...`,
-      });
-      // Simulate upload
-      setTimeout(() => {
-        toast({
-          title: "Upload Successful",
-          description: "Assignment submitted and tagged automatically.",
-          variant: "default",
-        });
-      }, 1500);
+      processUpload(files[0]);
     }
-  }, [toast]);
+  }, [processUpload]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processUpload(file);
+      e.target.value = '';
+    }
+  };
+
+  const handleViewDetails = (assignment: Assignment) => {
+    toast({
+      title: assignment.title,
+      description: `${assignment.subject} • Due ${new Date(assignment.dueDate).toLocaleDateString()} • Status: ${assignment.status}`,
+    });
+  };
 
   const getStatusColor = (status: Assignment['status']) => {
     switch (status) {
@@ -121,7 +186,6 @@ export default function Assignments() {
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 font-sans text-slate-900">
-      {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
@@ -140,16 +204,23 @@ export default function Assignments() {
         </div>
       </div>
 
-      {/* Upload Zone */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative group"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.zip,.doc,.docx"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
           className={`
             relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300 p-10
             flex flex-col items-center justify-center text-center space-y-4 cursor-pointer
@@ -166,7 +237,6 @@ export default function Assignments() {
             <p className="text-sm text-slate-500">PDF, ZIP, or DOCX (Max 25MB)</p>
           </div>
 
-          {/* Animated Background Pulse */}
           <AnimatePresence>
             {isDragging && (
               <motion.div
@@ -182,7 +252,6 @@ export default function Assignments() {
         </div>
       </motion.div>
 
-      {/* Assignments Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <AnimatePresence mode='popLayout'>
           {filteredAssignments.map((asgn, idx) => (
@@ -227,7 +296,12 @@ export default function Assignments() {
                       <AlertCircle className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
                       Due: {new Date(asgn.dueDate).toLocaleDateString()}
                     </div>
-                    <Button size="sm" variant="ghost" className="h-8 text-xs font-semibold text-primary hover:bg-primary/5">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-xs font-semibold text-primary hover:bg-primary/5"
+                      onClick={() => handleViewDetails(asgn)}
+                    >
                       View Details
                     </Button>
                   </div>
@@ -238,8 +312,11 @@ export default function Assignments() {
         </AnimatePresence>
       </div>
 
-      {/* Empty State */}
-      {filteredAssignments.length === 0 && (
+      {isLoading && (
+        <div className="text-center text-sm text-slate-500">Loading assignments...</div>
+      )}
+
+      {!isLoading && filteredAssignments.length === 0 && (
         <div className="py-20 flex flex-col items-center justify-center text-center opacity-70">
           <div className="p-4 rounded-full bg-slate-100 mb-4">
             <FileText className="w-8 h-8 text-slate-400" />

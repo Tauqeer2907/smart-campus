@@ -26,6 +26,7 @@ export const ROUTE_PATHS = {
   RECOMMENDATIONS: '/faculty/recommendations',
   // Admin Routes
   ADMIN_DASHBOARD: '/admin/dashboard',
+  ADMIN_SIGNUP_MANAGEMENT: '/admin/signup-management',
   PLACEMENT_MGMT: '/admin/placements',
   LIBRARY_MGMT: '/admin/library',
   FINANCE_LEDGER: '/admin/finance',
@@ -43,8 +44,10 @@ export interface User {
   year?: number;
   semester?: number;
   studentId?: string;
+  rollNumber?: string;
   facultyId?: string;
   cgpa?: number;
+  status?: string;
 }
 
 export interface AttendanceData {

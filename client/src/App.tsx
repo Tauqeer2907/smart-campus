@@ -6,11 +6,14 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
 import { ROUTE_PATHS, UserRole } from '@/lib/index';
 import { Layout } from '@/components/Layout';
+import { Chatbot } from '@/components/Chatbot';
 
 import Login from '@/pages/Login'; // Keep generic login as fallback or remove if unused
 import LandingPage from '@/pages/LandingPage';
+import Contact from '@/pages/Contact';
 import Register from '@/pages/auth/Register';
 import StudentLogin from '@/pages/auth/StudentLogin';
+import StudentSignup from '@/pages/auth/StudentSignup';
 import FacultyLogin from '@/pages/auth/FacultyLogin';
 import AdminLogin from '@/pages/auth/AdminLogin';
 import StudentDashboard from '@/pages/StudentDashboard';
@@ -33,6 +36,7 @@ import LibraryManagement from '@/pages/LibraryManagement';
 import FinanceLedger from '@/pages/FinanceLedger';
 import FeedbackAnalytics from '@/pages/FeedbackAnalytics';
 import FacultyOversight from '@/pages/FacultyOversight';
+import StudentSignupManagement from '@/pages/StudentSignupManagement';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -104,8 +108,10 @@ const App = () => {
           <Routes>
             <Route path={ROUTE_PATHS.LOGIN} element={<Navigate to="/" replace />} />
             <Route path="/" element={<LandingPage />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/register" element={<Register />} />
             <Route path="/login/student" element={<StudentLogin />} />
+            <Route path="/signup/student" element={<StudentSignup />} />
             <Route path="/login/faculty" element={<FacultyLogin />} />
             <Route path="/login/admin" element={<AdminLogin />} />
 
@@ -129,6 +135,7 @@ const App = () => {
 
             {/* Admin Routes */}
             <Route path={ROUTE_PATHS.ADMIN_DASHBOARD} element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+            <Route path={ROUTE_PATHS.ADMIN_SIGNUP_MANAGEMENT} element={<ProtectedRoute allowedRoles={['admin']}><StudentSignupManagement /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.PLACEMENT_MGMT} element={<ProtectedRoute allowedRoles={['admin']}><PlacementManagement /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.LIBRARY_MGMT} element={<ProtectedRoute allowedRoles={['admin']}><LibraryManagement /></ProtectedRoute>} />
             <Route path={ROUTE_PATHS.FINANCE_LEDGER} element={<ProtectedRoute allowedRoles={['admin']}><FinanceLedger /></ProtectedRoute>} />
@@ -138,6 +145,8 @@ const App = () => {
             {/* <Route path="/" element={<RootRedirect />} />  Removed to allow Landing Page */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          {/* Chatbot visible on all public pages */}
+          <Chatbot />
         </Router>
       </TooltipProvider>
     </QueryClientProvider>

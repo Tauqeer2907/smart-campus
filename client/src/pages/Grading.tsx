@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/select';
 import { GradeDistributionChart } from '@/components/Charts';
 import { springPresets, fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
+import { useToast } from '@/components/ui/use-toast';
 
 interface StudentMark {
   id: string;
@@ -71,6 +72,7 @@ export default function Grading() {
   const [searchTerm, setSearchTerm] = useState('');
   const [examType, setExamType] = useState('all');
   const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const stats = useMemo(() => {
     const totals = students.map(s => s.total);
@@ -112,8 +114,82 @@ export default function Grading() {
   };
 
   const handleSave = () => {
+    localStorage.setItem('grading_marksheet_cs201', JSON.stringify(students));
     setIsSaving(true);
-    setTimeout(() => setIsSaving(false), 1500);
+    setTimeout(() => {
+      setIsSaving(false);
+      toast({
+        title: 'Progress Saved',
+        description: 'Marks have been saved locally on this device.',
+      });
+    }, 1000);
+  };
+
+  const handleAddMarks = () => {
+    const nextIndex = students.length + 1;
+    const newStudent: StudentMark = {
+      id: `new_${Date.now()}`,
+      name: `New Student ${nextIndex}`,
+      rollNo: `COMP_${100 + nextIndex}`,
+      attendance: 0,
+      midSem: 0,
+      endSem: 0,
+      assignment: 0,
+      total: 0,
+      grade: 'F',
+    };
+
+    setStudents((prev) => [newStudent, ...prev]);
+    toast({
+      title: 'Row Added',
+      description: 'A new marks entry row has been added.',
+    });
+  };
+
+  const handleExportCsv = () => {
+    const rows = filteredStudents.map((student) => {
+      const percentage = student.total;
+      return {
+        rollNo: student.rollNo,
+        name: student.name,
+        midSem: student.midSem,
+        endSem: student.endSem,
+        assignment: student.assignment,
+        total: student.total,
+        percentage,
+        grade: student.grade,
+      };
+    });
+
+    const header = ['Roll No', 'Student Name', 'Mid (30)', 'End (60)', 'Assignment (10)', 'Total (100)', 'Percentage', 'Grade'];
+    const csvLines = [
+      header.join(','),
+      ...rows.map((r) => [
+        r.rollNo,
+        r.name,
+        r.midSem,
+        r.endSem,
+        r.assignment,
+        r.total,
+        `${r.percentage}%`,
+        r.grade,
+      ].map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+    ];
+
+    const blob = new Blob([csvLines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `grades_cs201_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: 'CSV Exported',
+      description: `${rows.length} student records exported successfully.`,
+    });
   };
 
   const filteredStudents = students.filter(s =>
@@ -147,12 +223,15 @@ export default function Grading() {
             </SelectContent>
           </Select>
 
-          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
+          <Button
+            onClick={handleAddMarks}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Marks
           </Button>
 
-          <Button variant="outline" className="glass border-white/10">
+          <Button onClick={handleExportCsv} variant="outline" className="glass border-white/10">
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Export CSV
           </Button>

@@ -99,16 +99,7 @@ export default function AdminDashboard() {
             Welcome back, {user?.name || 'Administrator'}. Here is the campus overview for today.
           </motion.p>
         </div>
-        <motion.div variants={fadeInUp} className="flex gap-2">
-          <Button variant="outline" size="sm" className="border-primary/20 hover:bg-primary/10">
-            <Activity className="w-4 h-4 mr-2" />
-            Live Logs
-          </Button>
-          <Button size="sm" className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-            <ShieldAlert className="w-4 h-4 mr-2" />
-            Emergency Broadcast
-          </Button>
-        </motion.div>
+        <motion.div variants={fadeInUp} className="flex gap-2" />
       </div>
 
       {/* Top Stats Grid */}
@@ -264,9 +255,6 @@ export default function AdminDashboard() {
                   <span className="text-[10px] text-muted-foreground mt-1 block">Yesterday</span>
                 </div>
               </div>
-              <Button variant="ghost" className="w-full text-xs text-primary hover:text-primary/80">
-                View Audit Trails <ArrowUpRight className="w-3 h-3 ml-1" />
-              </Button>
             </CardContent>
           </Card>
         </motion.div>

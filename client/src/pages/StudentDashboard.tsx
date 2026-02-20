@@ -9,22 +9,102 @@ import {
   Search,
   ChevronRight,
   TrendingDown,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { mockAttendanceData } from '@/lib/index';
 import { AttendanceCard } from '@/components/AttendanceCard';
 import { TimelineCard } from '@/components/TimelineCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import axios from 'axios';
+import { toast } from 'sonner';
 
 const StudentDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, getAuthToken } = useAuth();
   const [date, setDate] = useState(new Date());
+  const [studentData, setStudentData] = useState<any>(null);
+  const [attendanceData, setAttendanceData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Filter for low attendance
-  const lowAttendanceSubjects = mockAttendanceData.filter(s => s.percentage < 75);
+  // Fetch real student data from API
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        const token = getAuthToken();
+        if (!token || !user?.id) {
+          setIsLoading(false);
+          return;
+        }
+
+        const headers = { Authorization: `Bearer ${token}` };
+
+        // Fetch student profile from existing auth endpoint
+        const profileResponse = await axios.get(
+          'http://localhost:5000/api/auth/me',
+          { headers }
+        );
+        const profileUser = profileResponse.data?.user || user;
+        setStudentData(profileUser);
+
+        // Fetch attendance using supported endpoint
+        const studentIdentifiers = [
+          profileUser?.studentId,
+          profileUser?.rollNumber,
+          user?.studentId,
+          user?.rollNumber,
+          user?.id,
+        ].filter(Boolean);
+
+        let records: any[] = [];
+        for (const studentId of studentIdentifiers) {
+          const response = await axios.get('http://localhost:5000/api/attendance', {
+            headers,
+            params: { studentId },
+          });
+
+          if (Array.isArray(response.data) && response.data.length > 0) {
+            records = response.data;
+            break;
+          }
+        }
+
+        if (records.length === 0) {
+          const fallbackResponse = await axios.get('http://localhost:5000/api/attendance', { headers });
+          records = Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+        }
+
+        setAttendanceData(records);
+      } catch (error) {
+        console.error('Failed to fetch student data:', error);
+        toast.error('Failed to load student data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStudentData();
+  }, [user?.id, getAuthToken]);
+
+  // Filter for low attendance (< 75%)
+  const lowAttendanceSubjects = attendanceData.filter((s: any) => s.percentage < 75);
+
+  // Calculate overall attendance
+  const overallAttendance = attendanceData.length > 0 
+    ? (attendanceData.reduce((sum: number, s: any) => sum + Number(s.percentage || 0), 0) / attendanceData.length).toFixed(1)
+    : '0';
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 p-6 md:p-8 space-y-8 font-sans">
@@ -72,9 +152,9 @@ const StudentDashboard: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">Overall Attendance</p>
-                    <h3 className="text-2xl font-bold text-slate-900 mt-1">87.5%</h3>
-                    <p className="text-xs text-green-600 font-medium mt-1 flex items-center">
-                      +2.1% from last month
+                    <h3 className="text-2xl font-bold text-slate-900 mt-1">{overallAttendance}%</h3>
+                    <p className={`text-xs font-medium mt-1 flex items-center ${parseFloat(overallAttendance) >= 75 ? 'text-green-600' : 'text-red-600'}`}>
+                      {parseFloat(overallAttendance) >= 75 ? '✓ On track' : '⚠ Below 75%'}
                     </p>
                   </div>
                   <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
@@ -88,9 +168,9 @@ const StudentDashboard: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-slate-500">CGPA</p>
-                    <h3 className="text-2xl font-bold text-slate-900 mt-1">8.9</h3>
+                    <h3 className="text-2xl font-bold text-slate-900 mt-1">{studentData?.cgpa?.toFixed(2) || '0.00'}</h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Consistent performance
+                      {studentData?.cgpa >= 8.0 ? 'Excellent' : studentData?.cgpa >= 7.0 ? 'Good' : 'Average'} performance
                     </p>
                   </div>
                   <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
@@ -103,10 +183,10 @@ const StudentDashboard: React.FC = () => {
               <CardContent className="p-6">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-medium text-slate-500">Pending Assignments</p>
-                    <h3 className="text-2xl font-bold text-slate-900 mt-1">3</h3>
-                    <p className="text-xs text-amber-600 font-medium mt-1">
-                      Due this week
+                    <p className="text-sm font-medium text-slate-500">Enrolled Courses</p>
+                    <h3 className="text-2xl font-bold text-slate-900 mt-1">{attendanceData.length}</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {studentData?.semester || 'N/A'} semester
                     </p>
                   </div>
                   <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
@@ -121,9 +201,6 @@ const StudentDashboard: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900">Subject Attendance</h2>
-              <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 hover:bg-blue-50">
-                View Full Report
-              </Button>
             </div>
 
             {lowAttendanceSubjects.length > 0 && (
@@ -136,23 +213,24 @@ const StudentDashboard: React.FC = () => {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockAttendanceData.map((data) => (
-                <Card key={data.subject} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded">
-                        {data.subject.substring(0, 3).toUpperCase()}
+              {attendanceData.length > 0 ? (
+                attendanceData.map((data: any) => (
+                  <Card key={data.subjectCode} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-5">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded">
+                          {data.subjectCode?.substring(0, 3).toUpperCase() || 'SUB'}
+                        </div>
+                        <span className={`text-sm font-bold ${data.percentage < 75 ? 'text-red-600' : 'text-green-600'}`}>
+                          {data.percentage}%
+                        </span>
                       </div>
-                      <span className={`text-sm font-bold ${data.percentage < 75 ? 'text-red-600' : 'text-green-600'}`}>
-                        {data.percentage}%
-                      </span>
-                    </div>
-                    <h4 className="font-semibold text-slate-900 mb-1 line-clamp-1" title={data.subject}>
-                      {data.subject}
-                    </h4>
-                    <p className="text-xs text-slate-500">
-                      {data.attended} / {data.total} Classes Attended
-                    </p>
+                      <h4 className="font-semibold text-slate-900 mb-1 line-clamp-1" title={data.subject}>
+                        {data.subject}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {data.attended} / {data.total} Classes Attended
+                      </p>
                     <div className="mt-4 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full ${data.percentage < 75 ? 'bg-red-500' : 'bg-primary'}`}
@@ -161,7 +239,8 @@ const StudentDashboard: React.FC = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              ) : null}
             </div>
           </div>
         </div>

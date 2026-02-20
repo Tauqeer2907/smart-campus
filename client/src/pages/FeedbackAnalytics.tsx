@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { springPresets, fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
+import { toast } from 'sonner';
 
 // Mock data for the sentiment donut
 const sentimentData = [
@@ -69,6 +70,41 @@ const recentFeedback = [
 ];
 
 export default function FeedbackAnalytics() {
+  const handleExportReport = () => {
+    const sections = [
+      ['Feedback Analytics Report'],
+      [`Generated At`, new Date().toLocaleString()],
+      [],
+      ['Sentiment Overview'],
+      ['Type', 'Value (%)'],
+      ...sentimentData.map((item) => [item.name, item.value]),
+      [],
+      ['Subject-wise Satisfaction'],
+      ['Subject', 'Rating', 'Responses'],
+      ...subjectRatingData.map((item) => [item.subject, item.rating, item.count]),
+      [],
+      ['Recent Feedback Logs'],
+      ['Date', 'Subject', 'Sentiment', 'User', 'Feedback'],
+      ...recentFeedback.map((item) => [item.date, item.subject, item.sentiment, item.user, item.text]),
+    ];
+
+    const csv = sections
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `feedback_analytics_report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success('Feedback analytics report exported.');
+  };
+
   return (
     <motion.div
       variants={staggerContainer}
@@ -86,13 +122,9 @@ export default function FeedbackAnalytics() {
           <p className="text-muted-foreground">AI-powered sentiment analysis and institutional satisfaction metrics.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button onClick={handleExportReport} variant="outline" size="sm" className="gap-2">
             <Download className="h-4 w-4" />
             Export Report
-          </Button>
-          <Button size="sm" className="bg-primary text-primary-foreground gap-2">
-            <Filter className="h-4 w-4" />
-            Custom Range
           </Button>
         </div>
       </div>
@@ -285,9 +317,6 @@ export default function FeedbackAnalytics() {
                 </motion.div>
               ))}
             </div>
-            <Button variant="ghost" className="w-full mt-6 text-muted-foreground hover:text-primary">
-              Load More History
-            </Button>
           </CardContent>
         </Card>
       </motion.div>

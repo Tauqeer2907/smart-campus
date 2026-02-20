@@ -1,36 +1,88 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
-import { GraduationCap, ArrowLeft, Loader2 } from 'lucide-react';
+import { GraduationCap, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 const StudentLogin = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
+    const [identifier, setIdentifier] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAuth();
+    const [approvalStatus, setApprovalStatus] = useState<'pending' | 'rejected' | null>(null);
+    const [rejectionReason, setRejectionReason] = useState('');
+    const { loginWithToken } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setApprovalStatus(null);
+        setRejectionReason('');
+
         try {
-            if (!username.trim()) {
-                throw new Error("Please enter your Student ID");
+            if (!identifier.trim()) {
+                throw new Error("Please enter your Roll Number or Email");
             }
-            await login(username, 'student');
-            toast.success('Welcome back!');
+
+            // Make API call to login
+            const response = await axios.post('http://localhost:5000/api/auth/login', {
+                identifier: identifier.trim(),
+                role: 'student'
+            });
+
+            const { user, token } = response.data;
+
+            // Check approval status
+            if (user.status === 'pending_approval') {
+                setApprovalStatus('pending');
+                toast.error('Account Pending', {
+                    description: 'Your account is awaiting admin approval. You\'ll be notified once approved.'
+                });
+                return;
+            }
+
+            if (user.status === 'rejected') {
+                setApprovalStatus('rejected');
+                setRejectionReason(user.rejectionReason || 'No reason provided');
+                toast.error('Account Rejected', {
+                    description: user.rejectionReason || 'Your application was rejected.'
+                });
+                return;
+            }
+
+            // If approved, login and navigate
+            loginWithToken(user, token);
+            toast.success('Welcome back, ' + user.name + '!');
             navigate('/student/dashboard');
-            // Login hook handles redirect usually, but we ensure navigation here
-            // The ProtectedRoute or RootRedirect in App.tsx will handle the actual role-based routing
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            toast.error('Login failed', { description: 'Please check your credentials.' });
+            const errorMsg = error.response?.data?.error || error.message || 'Login failed';
+            const code = error.response?.data?.code;
+
+            if (code === 'USER_NOT_FOUND') {
+                toast.error('Account Not Found', {
+                    description: 'Don\'t have an account? Sign up as a new student.'
+                });
+            } else if (code === 'ACCOUNT_PENDING_APPROVAL') {
+                setApprovalStatus('pending');
+                toast.error('Account Pending', {
+                    description: 'Your account is awaiting admin approval. You\'ll be notified once approved.'
+                });
+            } else if (code === 'ACCOUNT_REJECTED') {
+                setApprovalStatus('rejected');
+                setRejectionReason(error.response?.data?.rejectionReason || 'No reason provided');
+                toast.error('Account Rejected', {
+                    description: error.response?.data?.rejectionReason || 'Your application was rejected.'
+                });
+            } else {
+                toast.error('Login Failed', { description: errorMsg });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -68,42 +120,49 @@ const StudentLogin = () => {
                         <CardHeader className="px-0">
                             <CardTitle className="text-3xl font-bold">Student Login</CardTitle>
                             <CardDescription className="text-base mt-2">
-                                Enter your University ID to access your dashboard.
+                                Enter your Roll Number or Email to access your dashboard
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="px-0">
+                            {/* Status Alerts */}
+                            {approvalStatus === 'pending' && (
+                                <Alert className="mb-4 border-yellow-200 bg-yellow-50">
+                                    <AlertCircle className="h-4 w-4 text-yellow-600" />
+                                    <AlertDescription className="text-yellow-800">
+                                        Your account is pending admin approval. Check back soon!
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
+                            {approvalStatus === 'rejected' && (
+                                <Alert className="mb-4 border-red-200 bg-red-50">
+                                    <AlertCircle className="h-4 w-4 text-red-600" />
+                                    <AlertDescription className="text-red-800">
+                                        <p className="font-semibold">Account Rejected</p>
+                                        <p className="text-sm mt-1">{rejectionReason}</p>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <div className="space-y-2">
-                                    <Label htmlFor="username">Student ID</Label>
+                                    <Label htmlFor="identifier" className="text-sm font-medium">Roll Number or Email *</Label>
                                     <Input
-                                        id="username"
+                                        id="identifier"
                                         type="text"
-                                        value={username}
-                                        onChange={(e) => setUsername(e.target.value)}
-                                        placeholder="e.g. COMP_101"
+                                        value={identifier}
+                                        onChange={(e) => setIdentifier(e.target.value)}
+                                        placeholder="e.g., 2024CS001 or student@email.com"
                                         className="h-11"
                                         required
+                                        disabled={isLoading}
                                     />
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <Label htmlFor="password">Password</Label>
-                                        <a href="#" className="text-sm text-blue-500 hover:underline">Forgot password?</a>
-                                    </div>
-                                    <Input
-                                        id="password"
-                                        type="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="••••••••"
-                                        className="h-11"
-                                        required
-                                    />
+                                    <p className="text-xs text-muted-foreground">Use your roll number or registered email</p>
                                 </div>
 
                                 <Button
                                     type="submit"
-                                    disabled={isLoading}
+                                    disabled={isLoading || !identifier}
                                     className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all"
                                 >
                                     {isLoading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
@@ -113,10 +172,10 @@ const StudentLogin = () => {
                         </CardContent>
                         <CardFooter className="px-0 flex-col gap-4 border-t border-border pt-6 mt-2">
                             <p className="text-sm text-muted-foreground">
-                                Don't have an account? <Link to="/register" className="text-blue-500 hover:underline font-medium">Sign up</Link>
+                                Don't have an account? <Link to="/signup/student" className="text-blue-600 hover:underline font-medium">Sign up here</Link>
                             </p>
                             <p className="text-sm text-muted-foreground">
-                                Having trouble? <a href="#" className="text-blue-500 hover:underline">Contact IT Support</a>
+                                Having trouble? <a href="#" className="text-blue-600 hover:underline">Contact IT Support</a>
                             </p>
                         </CardFooter>
                     </Card>

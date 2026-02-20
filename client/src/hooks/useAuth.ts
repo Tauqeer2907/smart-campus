@@ -1,29 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
-import { User, UserRole, mockUsers, parseStudentId } from '@/lib/index';
+import { User, UserRole } from '@/lib/index';
 
 /**
  * UniCampus Authentication Hook
- * Manages session persistence, role-based access, and smart login parsing.
- * Version: 2026.1.0
+ * Manages session persistence, role-based access, and API-based authentication.
+ * Version: 2026.2.0
  */
 
 const SESSION_STORAGE_KEY = 'unicampus_session_2026';
+const TOKEN_STORAGE_KEY = 'unicampus_token_2026';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
 
   // Hydrate user session from localStorage on initial mount
   useEffect(() => {
     const hydrateSession = () => {
       try {
         const storedUser = localStorage.getItem(SESSION_STORAGE_KEY);
+        const storedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
         if (storedUser) {
           setUser(JSON.parse(storedUser));
+        }
+        if (storedToken) {
+          setToken(storedToken);
         }
       } catch (error) {
         console.error('[Auth] Failed to restore session:', error);
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
       } finally {
         setIsLoading(false);
       }
@@ -33,52 +40,53 @@ export const useAuth = () => {
   }, []);
 
   /**
-   * login: Handles smart identification parsing and session creation
-   * @param identifier - Student ID (e.g., COMP_101) or Faculty ID
+   * loginWithToken: Direct login using API response user data
+   * @param userData - User object from API response
+   * @param authToken - JWT token from API response
+   */
+  const loginWithToken = useCallback((userData: any, authToken: string) => {
+    // Ensure user has required fields for app
+    const userWithDefaults: User = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: userData.role as UserRole,
+      avatar: userData.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${userData.email}`,
+      studentId: userData.studentId,
+      facultyId: userData.facultyId,
+      branch: userData.branch,
+      year: userData.year,
+      cgpa: userData.cgpa,
+      rollNumber: userData.rollNumber,
+      status: userData.status,
+    };
+
+    setUser(userWithDefaults);
+    setToken(authToken);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(userWithDefaults));
+    localStorage.setItem(TOKEN_STORAGE_KEY, authToken);
+    return userWithDefaults;
+  }, []);
+
+  /**
+   * login: Legacy method for backward compatibility (not recommended for new code)
+   * @param identifier - Student ID, Faculty ID, or email
    * @param role - Selected login role
    */
   const login = useCallback((identifier: string, role: UserRole) => {
-    // 1. Attempt to find existing mock user for standard demo cases (Case Insensitive)
-    let authenticatedUser = mockUsers.find(
-      (u) =>
-        (u.studentId?.toLowerCase() === identifier.toLowerCase() ||
-          u.facultyId?.toLowerCase() === identifier.toLowerCase() ||
-          u.email.toLowerCase() === identifier.toLowerCase()) &&
-        u.role === role
-    );
+    // This is kept for backward compatibility but shouldn't be used for real auth
+    // Use loginWithToken instead
+    const dummyUser: User = {
+      id: `gen_${Date.now()}`,
+      name: 'User',
+      email: `${identifier.toLowerCase()}@nitcampus.edu`,
+      role: role,
+      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${identifier}`,
+    };
 
-    // 2. Dynamic profile generation if not in mocks (enables testing any ID format)
-    if (!authenticatedUser) {
-      const parsedDetails = role === 'student' ? parseStudentId(identifier) : null;
-      // Deterministically pick a realistic name based on the ID
-      const realisticNames = [
-        "Rahul Verma", "Priya Singh", "Amit Patel", "Sneha Gupta", "Vikram Rao",
-        "Anjali Kumar", "Rohan Das", "Kavita Reddy", "Arjun Nair", "Meera Iyer",
-        "Siddharth Malhotra", "Nisha Joshi", "Aditya Chopra", "Pooja Mehta", "Karan Johar"
-      ];
-
-      // Simple hash function to pick a name
-      const idSum = identifier.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const nameIndex = idSum % realisticNames.length;
-      const formattedName = realisticNames[nameIndex];
-
-      authenticatedUser = {
-        id: `gen_${Date.now()}`,
-        name: formattedName, // Changed from just the prefix to be more descriptive
-        email: `${identifier.toLowerCase()}@nit.edu`,
-        role: role,
-        branch: parsedDetails?.branch || 'CORE',
-        year: parsedDetails?.year || 1,
-        studentId: role === 'student' ? identifier.toUpperCase() : undefined,
-        facultyId: role === 'faculty' ? identifier.toUpperCase() : undefined,
-        avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${identifier}`,
-        cgpa: role === 'student' ? 8.5 : undefined, // Default demo CGPA
-      };
-    }
-
-    setUser(authenticatedUser);
-    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(authenticatedUser));
-    return authenticatedUser;
+    setUser(dummyUser);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(dummyUser));
+    return Promise.resolve(dummyUser);
   }, []);
 
   /**
@@ -86,7 +94,9 @@ export const useAuth = () => {
    */
   const logout = useCallback(() => {
     setUser(null);
+    setToken(null);
     localStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
   }, []);
 
   /**
@@ -113,13 +123,25 @@ export const useAuth = () => {
     });
   }, []);
 
+  const isAuthenticated = !!user;
+
+  /**
+   * getAuthToken: Returns the current auth token for API calls
+   */
+  const getAuthToken = useCallback(() => {
+    return token || localStorage.getItem(TOKEN_STORAGE_KEY);
+  }, [token]);
+
   return {
     user,
+    token,
+    isAuthenticated,
     isLoading,
-    isAuthenticated: !!user,
     login,
+    loginWithToken,
     logout,
     switchRole,
     updateProfile,
+    getAuthToken,
   };
 };

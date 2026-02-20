@@ -263,9 +263,6 @@ export default function Resources() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="border-border/50 bg-card/50">
-                <Filter className="w-4 h-4" />
-              </Button>
               <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
                 {filteredResources.length} Resources Found
               </Badge>

@@ -21,7 +21,6 @@ import {
   PieChart,
   Users,
   Search,
-  Bell,
   Menu,
   X,
   ChevronLeft,
@@ -29,7 +28,8 @@ import {
   LogOut,
   UserCircle,
   ShieldAlert,
-  Sparkles
+  Sparkles,
+  Settings
 } from 'lucide-react';
 import { ROUTE_PATHS, UserRole } from '@/lib/index';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,7 +57,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout, switchRole } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -84,6 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const adminNav: NavItem[] = [
     { label: 'Control Panel', path: ROUTE_PATHS.ADMIN_DASHBOARD, icon: LayoutDashboard },
+    { label: 'Student Approvals', path: ROUTE_PATHS.ADMIN_SIGNUP_MANAGEMENT, icon: UserCircle },
     { label: 'Placement Mgmt', path: ROUTE_PATHS.PLACEMENT_MGMT, icon: Building2 },
     { label: 'Library Inventory', path: ROUTE_PATHS.LIBRARY_MGMT, icon: Library },
     { label: 'Finance Ledger', path: ROUTE_PATHS.FINANCE_LEDGER, icon: Landmark },
@@ -185,7 +186,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 <UserCircle className="w-4 h-4" /> Profile
               </DropdownMenuItem>
               <DropdownMenuItem className="gap-2 cursor-pointer">
-                <Bell className="w-4 h-4" /> Preferences
+                <Settings className="w-4 h-4" /> Preferences
               </DropdownMenuItem>
               <DropdownMenuSeparator className="bg-white/5" />
               <DropdownMenuItem onClick={handleLogout} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
@@ -229,12 +230,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="w-5 h-5" />
-              {notificationCount > 0 && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full animate-pulse shadow-[0_0_8px_rgba(var(--destructive),0.8)]" />
-              )}
-            </Button>
+            <NotificationCenter />
             <div className="h-8 w-[1px] bg-white/10 hidden md:block" />
             <div className="hidden md:flex flex-col items-end">
               <span className="text-xs font-mono text-muted-foreground">

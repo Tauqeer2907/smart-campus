@@ -63,11 +63,6 @@ const LandingPage = () => {
                                     Access Student Portal
                                 </Button>
                             </Link>
-                            <Link to="/about">
-                                <Button variant="outline" size="lg" className="h-12 px-8 text-base border-slate-200 text-slate-700 hover:bg-slate-50">
-                                    Learn More
-                                </Button>
-                            </Link>
                         </div>
                     </motion.div>
                 </div>
